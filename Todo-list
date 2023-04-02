@@ -1,0 +1,108 @@
+import sqlite3
+import datetime
+import tkinter as tk
+
+# create database connection
+conn = sqlite3.connect('tasks.db')
+
+# create table for tasks if it doesn't exist
+conn.execute('''CREATE TABLE IF NOT EXISTS tasks
+             (ID INTEGER PRIMARY KEY AUTOINCREMENT,
+             TASK_NAME TEXT NOT NULL,
+             PRIORITY TEXT NOT NULL,
+             DUE_DATE TEXT NOT NULL,
+             STATUS TEXT NOT NULL);''')
+
+# define a function to add new tasks
+def add_task():
+    task_name = task_name_entry.get()
+    priority = priority_entry.get()
+    due_date = due_date_entry.get()
+    status = "Incomplete"
+    conn.execute("INSERT INTO tasks (TASK_NAME, PRIORITY, DUE_DATE, STATUS) VALUES (?, ?, ?, ?)", (task_name, priority, due_date, status))
+    conn.commit()
+    clear_entries()
+    refresh_tasks()
+
+# define a function to view tasks
+def view_tasks():
+    cursor = conn.execute("SELECT TASK_NAME, PRIORITY, DUE_DATE, STATUS FROM tasks")
+    task_list.delete(0, tk.END)
+    for row in cursor:
+        task_name = row[0]
+        priority = row[1]
+        due_date = row[2]
+        status = row[3]
+        task_list.insert(tk.END, f"{task_name} - Priority: {priority} - Due date: {due_date} - Status: {status}")
+
+# define a function to mark a task as complete
+def mark_complete():
+    task_name = task_name_entry.get()
+    conn.execute("UPDATE tasks SET STATUS=? WHERE TASK_NAME=?", ("Complete", task_name))
+    conn.commit()
+    clear_entries()
+    refresh_tasks()
+
+# define a function to check for overdue tasks
+def check_overdue():
+    today = datetime.datetime.today().strftime('%d-%m-%Y')
+    cursor = conn.execute("SELECT TASK_NAME, DUE_DATE FROM tasks WHERE DUE_DATE < ?", (today,))
+    task_list.delete(0, tk.END)
+    for row in cursor:
+        task_name = row[0]
+        due_date = row[1]
+        task_list.insert(tk.END, f"Overdue task: {task_name} - Due date: {due_date}")
+
+def clear_entries():
+    task_name_entry.delete(0, tk.END)
+    priority_entry.delete(0, tk.END)
+    due_date_entry.delete(0, tk.END)
+
+def refresh_tasks():
+    view_tasks()
+
+# create main window
+root = tk.Tk()
+root.title("To-Do List")
+
+# create task entry widgets
+task_name_label = tk.Label(root, text="Task Name")
+task_name_label.grid(row=0, column=0)
+task_name_entry = tk.Entry(root)
+task_name_entry.grid(row=0, column=1)
+
+priority_label = tk.Label(root, text="Priority")
+priority_label.grid(row=1, column=0)
+priority_entry = tk.Entry(root)
+priority_entry.grid(row=1, column=1)
+
+due_date_label = tk.Label(root, text="Due Date")
+due_date_label.grid(row=2, column=0)
+due_date_entry = tk.Entry(root)
+due_date_entry.grid(row=2, column=1)
+
+# create buttons
+add_button = tk.Button(root, text="Add", command=add_task)
+add_button.grid(row=3, column=0)
+
+view_button = tk.Button(root, text="View", command=view_tasks)
+view_button.grid(row=3, column=1)
+
+mark_complete_button = tk.Button(root, text="Mark Complete", command=mark_complete)
+mark_complete_button.grid(row=3, column=2)
+
+check_overdue_button = tk.Button(root, text="Check Overdue", command=check_overdue)
+check_overdue_button.grid(row=3, column=3)
+
+# create task list
+task_list = tk.Listbox(root)
+task_list.grid(row=4, column=0, columnspan=4)
+
+# populate task list on startup
+view_tasks()
+
+# run tkinter event loop
+root.mainloop()
+
+# close database connection
+conn.close()
